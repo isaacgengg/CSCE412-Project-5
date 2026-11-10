@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Isaac Geng | Computer Engineering</title>
+  <meta name="description" content="Portfolio of Isaac Geng, computer engineering student at Texas A&M.">
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/index.html">Isaac Geng</a>
+      <nav class="nav" aria-label="Main">
+        <button class="icon-btn menu-btn" aria-expanded="false" aria-controls="nav-links">Menu</button>
+        <ul id="nav-links">
+        <li><a href="/index.html" aria-current="page">Home</a></li>
+        <li><a href="/about.html">About</a></li>
+        <li><a href="/projects.html">Projects</a></li>
+        <li><a href="/resume.html">Resume</a></li>
+        <li><a href="/contact.html">Contact</a></li>
+        </ul>
+        <button class="icon-btn" data-theme-toggle aria-pressed="false">Dark mode</button>
+      </nav>
+    </div>
+  </header>
+  <main id="main">
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <h1>I build systems from the gates up.</h1>
+          <p class="lede">I'm Isaac Geng, a computer engineering student at Texas A&amp;M working across hardware, applied machine learning, and cloud infrastructure.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="/projects.html">See my projects</a>
+            <a class="btn btn-ghost" href="/contact.html">Get in touch</a>
+          </div>
+        </div>
+        <svg class="hero-art" viewBox="0 0 360 260" role="img" aria-label="A copper trace routing from a chip to three connection pads">
+        <rect class="chip" x="40" y="90" width="110" height="80" rx="4"/>
+        <g class="pin"><path d="M60 90v-12M85 90v-12M110 90v-12M135 90v-12M60 170v12M85 170v12M110 170v12M135 170v12"/></g>
+        <text x="95" y="135" text-anchor="middle">CPU</text>
+        <path class="trace" d="M150 110h60l30-50h60M150 130h150M150 150h60l30 50h60"/>
+        <circle class="pad" cx="310" cy="60" r="10"/><circle class="pad" cx="310" cy="130" r="10"/><circle class="pad" cx="310" cy="200" r="10"/>
+      </svg>
+      </div>
+    </section>
+    <section class="section">
+      <div class="wrap">
+        <h2>What I work on</h2>
+        <div class="focus-list">
+          <div><h3>Hardware</h3><p>FPGA and embedded design, digital logic, and how processors actually execute code.</p></div>
+          <div><h3>Applied ML</h3><p>Putting models to work on real problems, and thinking about the hardware they run on.</p></div>
+          <div><h3>Infrastructure</h3><p>Internal tools, deployment automation, and cloud services that stay up without babysitting.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>&copy; <span data-year></span> Isaac Geng</span>
+      <span>Served from Amazon S3 through CloudFront</span>
+    </div>
+  </footer>
+  <script src="/js/main.js" defer></script>
+</body>
+</html>
