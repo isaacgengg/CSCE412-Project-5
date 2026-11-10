@@ -24,7 +24,7 @@
         "cloudfront:GetDistribution", "cloudfront:GetDistributionConfig",
         "cloudfront:UpdateDistribution", "cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"
       ],
-      "Resource": "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID"
+      "Resource": "arn:aws:cloudfront::408588283693:distribution/E14KO8XRACBHA0"
     },
     {
       "Sid": "CloudFrontDiscovery",
@@ -36,13 +36,13 @@
       "Sid": "Route53ReadZone",
       "Effect": "Allow",
       "Action": ["route53:ListResourceRecordSets", "route53:GetHostedZone"],
-      "Resource": "arn:aws:route53:::hostedzone/HOSTED_ZONE_ID"
+      "Resource": "arn:aws:route53:::hostedzone/Z069159025HBQWOF40552"
     },
     {
       "Sid": "Route53AliasRecordsOnly",
       "Effect": "Allow",
       "Action": ["route53:ChangeResourceRecordSets"],
-      "Resource": "arn:aws:route53:::hostedzone/HOSTED_ZONE_ID",
+      "Resource": "arn:aws:route53:::hostedzone/Z069159025HBQWOF40552",
       "Condition": {
         "ForAllValues:StringEquals": {"route53:ChangeResourceRecordSetsRecordTypes": ["A", "AAAA"]}
       }
