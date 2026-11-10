@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-label="Pipeline timing chart">
+<rect width="400" height="200" fill="#E9EEEB"/>
+<g font-family="Archivo,system-ui,sans-serif" font-size="12" font-weight="600" fill="#18201C">
+<g fill="#fff" stroke="#18201C" stroke-width="1.5">
+<rect x="60" y="40" width="60" height="26"/><rect x="120" y="40" width="60" height="26"/><rect x="180" y="40" width="60" height="26"/>
+<rect x="120" y="80" width="60" height="26"/><rect x="180" y="80" width="60" height="26"/><rect x="240" y="80" width="60" height="26"/>
+<rect x="180" y="120" width="60" height="26" stroke="#6B1420"/><rect x="240" y="120" width="60" height="26"/><rect x="300" y="120" width="60" height="26"/></g>
+<text x="80" y="58">IF</text><text x="140" y="58">ID</text><text x="200" y="58">EX</text>
+<text x="140" y="98">IF</text><text x="200" y="98">ID</text><text x="260" y="98">EX</text>
+<text x="200" y="138">IF</text><text x="260" y="138">ID</text><text x="320" y="138">EX</text></g>
+<path d="M60 172h300" stroke="#B06A2E" stroke-width="3"/></svg>

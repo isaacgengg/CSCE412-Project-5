@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-label="Grid of logic blocks representing an FPGA fabric">
+<rect width="400" height="200" fill="#E9EEEB"/>
+<g fill="#fff" stroke="#18201C" stroke-width="2">
+<rect x="60" y="40" width="50" height="50" rx="4"/><rect x="140" y="40" width="50" height="50" rx="4"/><rect x="220" y="40" width="50" height="50" rx="4"/><rect x="300" y="40" width="50" height="50" rx="4"/>
+<rect x="60" y="115" width="50" height="50" rx="4"/><rect x="140" y="115" width="50" height="50" rx="4" stroke="#6B1420"/><rect x="220" y="115" width="50" height="50" rx="4"/><rect x="300" y="115" width="50" height="50" rx="4"/></g>
+<path d="M110 65h30M190 65v75h30M270 140h30M165 90v25" stroke="#B06A2E" stroke-width="3" fill="none"/></svg>

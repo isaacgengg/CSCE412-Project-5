@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-label="Diagram: browser to CloudFront to private S3 bucket">
+<rect width="400" height="200" fill="#E9EEEB"/>
+<g font-family="Archivo,system-ui,sans-serif" font-size="14" font-weight="600" fill="#18201C" text-anchor="middle">
+<rect x="20" y="75" width="90" height="50" rx="6" fill="#fff" stroke="#18201C" stroke-width="2"/><text x="65" y="105">Browser</text>
+<rect x="155" y="75" width="90" height="50" rx="6" fill="#fff" stroke="#18201C" stroke-width="2"/><text x="200" y="105">CloudFront</text>
+<rect x="290" y="75" width="90" height="50" rx="6" fill="#fff" stroke="#6B1420" stroke-width="2"/><text x="335" y="105">S3 (private)</text>
+<text x="132" y="65" font-size="12" fill="#56615B">HTTPS</text><text x="267" y="65" font-size="12" fill="#56615B">OAC</text></g>
+<path d="M110 100h45M245 100h45" stroke="#B06A2E" stroke-width="3"/></svg>
