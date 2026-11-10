@@ -1,0 +1,63 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SiteBucketReadWriteObjects",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::csce412isaacgeng-site/*"
+    },
+    {
+      "Sid": "SiteBucketConfig",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket", "s3:GetBucketLocation", "s3:GetBucketWebsite",
+        "s3:GetBucketPolicy", "s3:GetBucketPolicyStatus", "s3:PutBucketPolicy",
+        "s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock"
+      ],
+      "Resource": "arn:aws:s3:::csce412isaacgeng-site"
+    },
+    {
+      "Sid": "CloudFrontThisDistribution",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:GetDistribution", "cloudfront:GetDistributionConfig",
+        "cloudfront:UpdateDistribution", "cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"
+      ],
+      "Resource": "arn:aws:cloudfront::ACCOUNT_ID:distribution/DISTRIBUTION_ID"
+    },
+    {
+      "Sid": "CloudFrontDiscovery",
+      "Effect": "Allow",
+      "Action": ["cloudfront:ListDistributions"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Route53ReadZone",
+      "Effect": "Allow",
+      "Action": ["route53:ListResourceRecordSets", "route53:GetHostedZone"],
+      "Resource": "arn:aws:route53:::hostedzone/HOSTED_ZONE_ID"
+    },
+    {
+      "Sid": "Route53AliasRecordsOnly",
+      "Effect": "Allow",
+      "Action": ["route53:ChangeResourceRecordSets"],
+      "Resource": "arn:aws:route53:::hostedzone/HOSTED_ZONE_ID",
+      "Condition": {
+        "ForAllValues:StringEquals": {"route53:ChangeResourceRecordSetsRecordTypes": ["A", "AAAA"]}
+      }
+    },
+    {
+      "Sid": "Route53Discovery",
+      "Effect": "Allow",
+      "Action": ["route53:ListHostedZonesByName", "route53:GetChange"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AcmReadOnly",
+      "Effect": "Allow",
+      "Action": ["acm:DescribeCertificate", "acm:ListCertificates"],
+      "Resource": "*"
+    }
+  ]
+}
