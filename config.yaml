@@ -1,0 +1,13 @@
+# Non-secret project configuration. Credentials come from the environment (.env / AWS profile).
+domain: csce412isaacgeng.me
+alt_names:
+  - www.csce412isaacgeng.me
+bucket: csce412isaacgeng-site
+region: us-east-1            # region used when bootstrap creates the bucket; runtime auto-detects
+site_dir: site
+required_pages: [index.html, about.html, projects.html, resume.html, contact.html]
+distribution_id: ""          # blank = auto-discover by the domain alias
+hosted_zone_id: ""           # blank = auto-discover by domain name
+oac_name: csce412-site-oac
+model: gpt-4.1-mini          # override with OPENAI_MODEL
+max_agent_steps: 12

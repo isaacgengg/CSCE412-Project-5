@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+runs/
+project5-agent-logs/
+project5-agent-logs.zip
+.failure_backup.json

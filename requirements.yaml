@@ -1,0 +1,20 @@
+# High-level requirements from the organization, given to the Planner as-is.
+organization: Isaac Geng (personal portfolio)
+goal: >
+  Publish a secure, highly available static website at the organization's custom domain,
+  with minimal manual infrastructure work.
+website:
+  - At least five interconnected pages with consistent navigation and a responsive design.
+  - At least one interactive client-side JavaScript feature.
+  - A custom error page for missing resources.
+  - No continuously running backend server.
+hosting:
+  - Content stored in Amazon S3 and delivered only through Amazon CloudFront.
+  - The site must load from the registered custom domain, including the www name.
+security:
+  - HTTPS with a valid ACM certificate for the domain; HTTP must redirect to HTTPS.
+  - The S3 bucket must not allow anonymous public access; direct S3 requests must be denied.
+  - No credentials in source control; least-privilege access for automation.
+  - Human approval before destructive or security-sensitive changes.
+operations:
+  - Deployment and verification must be repeatable and produce recorded evidence.
