@@ -52,7 +52,8 @@ its action summaries. Find out what failed and why, from evidence:
 - Read the commit (git_commit) to connect the failure to the change that caused it, and the relevant
   repository file (read_repo_file) if the cause is pipeline or deploy configuration.
 Quote short excerpts exactly. The recommended fix is a concrete code or configuration change; if
-production is not on a verified release, also recommend running `orchestrator.py rollback`.
+the live release (release_status) is NOT verified, also recommend running `orchestrator.py rollback`;
+if it is verified, state that production is healthy and no rollback is needed.
 If the execution succeeded, say so and report what was verified."""
 
 RELEASE_REPORT = {"type": "object", "properties": {

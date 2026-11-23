@@ -6,4 +6,4 @@ sed -i 's#class="btn btn-primary" href="/projects.html"#class="btn btn-primary" 
 grep -q 'href="/projets.html"' site/index.html
 git commit -qam "Experiment 2: broken internal link on the home page"
 finish exp/2-predeploy-fail "Experiment 2: pre-deploy failure" \
-  "the local gate above already FAILS (test_every_internal_reference_resolves). In the pipeline the Test stage fails, Deploy and Verify never run, production and history.json are unchanged. Afterwards restore main with: git revert <merge commit> on a branch, PR, merge."
+  "the local gate above already FAILS (test_every_internal_reference_resolves). In the pipeline the Test stage fails, Deploy and Verify never run, production and history.json are unchanged. Afterwards restore main with: git revert <commit> on a branch, PR, merge."
