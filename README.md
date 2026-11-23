@@ -1,189 +1,222 @@
-# CSCE 412 Project 5: Secure Cloud Website with a Multi-Agent AI System
+# CSCE 412 Projects 5–6: Secure Cloud Website, Multi-Agent AI System, and CI/CD with Rollback
 
 Live site: **https://csce412isaacgeng.me**
 
-A static portfolio website hosted on AWS (private S3 bucket → CloudFront with Origin Access
-Control → custom domain on Route 53 with an ACM certificate), deployed, audited, verified and
-repaired by six cooperating AI agents built on the OpenAI API.
+A static portfolio website on AWS: a private S3 bucket behind CloudFront with Origin Access
+Control, on a custom domain with Route 53 and an ACM certificate. **Project 6** adds a CI/CD
+pipeline: every push to `main` is built, tested, deployed as an immutable release, verified in
+production, and automatically rolled back to the last known-good release if verification fails.
+Eight cooperating AI agents (OpenAI Chat Completions with function calling) review the pipeline,
+generate tests for it, diagnose failures and coordinate recovery. The pipeline itself never needs
+an AI model.
+
+Project 5 as submitted is tagged `p5-final`.
 
 ## Architecture
 
 ```
-Visitor ──DNS──> Route 53 (A/AAAA alias) ──> CloudFront ──OAC (SigV4)──> S3 bucket (private)
-                                              │  ACM certificate (us-east-1), HTTP→HTTPS
-                                              └─ custom 403/404 → /404.html
+Visitor ─DNS─> Route 53 (A/AAAA alias) ─> CloudFront ─OAC (SigV4)─> S3 bucket (private)
+                                           │  OriginPath = /releases/<live release id>
+                                           │  ACM certificate (us-east-1), HTTP→HTTPS, custom 403/404
+                                           └─ releases/<sha>/ (immutable)   deployments/history.json (private)
+
+git push main ─> CodePipeline V2 (us-east-2, QUEUED)
+                 Source ─> Test ─────────> Deploy ────────────> Verify & Recover
+                           build + gate    releases/<sha>/       live checks; on failure roll back
+                           (blocks deploy) OriginPath, invalidate to the newest verified release
+                 CodeBuild logs + JUnit/JSON results ─> private artifacts bucket (no CloudWatch)
 ```
 
+Full pipeline details are in [docs/cicd.md](docs/cicd.md).
+
 ```
-requirements.yaml ─> Planner ─> Site Agent ─> Infra Agent ─> Security Agent ─> Verifier ─┐
-                                                   ▲                                     │ fail
-                                                   └── approved fix ── human ── Diagnoser ┘
-                     (every hand-off is a JSON message on the bus, logged to runs/<id>/)
+                ┌─ review-pipeline ─> Pipeline Engineer (read-only review, drift, least privilege)
+                ├─ generate-tests ──> Site Agent ─> Test Engineer ─> mutation harness ─> tests/generated/
+orchestrator ───┼─ analyze-release ─> Diagnoser (executions, CodeBuild logs, results, history, commit)
+                ├─ rollback ────────> Recovery Coordinator ─approval─> rollback ─> Verifier ─> history
+                ├─ verify ──────────> Verifier ─fail─> Diagnoser ─> Recovery Coordinator (one fix) ─> Verifier
+                └─ audit / plan ────> Security Agent / Planner
+      every hand-off is a JSON message on the bus, logged under runs/<id>/
 ```
 
-Each agent is an LLM (OpenAI Chat Completions with function calling) given a system prompt,
-a JSON task, and an **allowlist of tools**. Python executes the tools and returns raw results;
-the model reasons over them and ends by calling `submit_report` with a schema-validated JSON
-report, which becomes the next agent's input. Tools that change infrastructure are marked
-*consequential* and pause for a human `y/N` before running.
+Each agent is an LLM given a system prompt, a JSON task and an **allowlist of tools**. Python runs
+the tools and returns raw results; the model ends by calling `submit_report` with a
+schema-validated report. Tools that change infrastructure are *consequential* and pause for a
+human `y/N`.
 
-AI decisions vs. deterministic code:
-
-| Decided by the LLM | Done by deterministic Python |
+| Decided by an LLM | Done by deterministic code |
 |---|---|
-| Task decomposition and assignment (Planner) | Tool execution (boto3, HTTP, TLS, DNS, file parsing) |
-| Whether the site is ready to deploy; quality issues (Site) | The Part D check suite and its pass/fail values |
-| Which deploy steps to run and when (Infra) | Approval gate, logging, redaction |
-| Security findings and severity (Security) | Bootstrap and failure-injection scripts |
+| Task decomposition (Planner) | The entire pipeline: build, tests, deploy, verification, rollback (`cicd/release.py`) |
+| Site quality notes and readiness (Site) | Release IDs, history, current release, the bounded rollback |
+| Pipeline findings and recommendations (Pipeline Engineer) | Which generated tests are kept (mutation harness) |
+| Candidate tests from the requirements (Test Engineer) | Live verification pass/fail (`tools/live_checks.py`) |
+| Root cause and fix for a failed execution or verification (Diagnoser) | Approval gate, logging, redaction |
+| Whether to roll back, and the rationale (Recovery Coordinator) | What was actually rolled back (read from CloudFront, not from the model) |
+| Security findings and severity (Security) | |
 | Follow-up probes and symptom summary (Verifier) | |
-| Root cause and which allowlisted fix to propose (Diagnoser) | |
-
-The verification verdict always comes from evidence; the orchestrator overwrites the model's
-`all_passed` with the computed value.
 
 ## Agents
 
-| Agent | Responsibility | Tools | Input → Output |
+| Agent | Responsibility | Tools | Command |
 |---|---|---|---|
-| **Planner** (`agents/planner.py`) | Turns `requirements.yaml` into ordered tasks assigned to agents; lists human-only steps | none (JSON mode) | requirements → `plan.json` |
-| **Site Agent** (`agents/site_agent.py`) | Checks the five-page site against Part A; blocks deploys on broken references | `inventory_site`, `check_links`, `check_site_requirements` | site tasks → readiness report |
-| **Infra Agent** (`agents/infra_agent.py`) | Deploys content and applies approved fixes | CloudFront/S3/Route 53/ACM reads, `s3_sync_site`*, `cloudfront_invalidate`, `cloudfront_wait_deployed`; in fix mode only the single proposed action* | site report or fix proposal → deployment/fix report |
-| **Security Agent** (`agents/security_agent.py`) | Read-only audit: Block Public Access, bucket policy scope, OAC, HTTPS redirect, cert, TLS policy, DNS | all AWS read tools | deploy report → findings with severity and evidence |
-| **Verifier** (`agents/verifier_agent.py`) | Runs the Part D suite, then investigates failures with extra probes | `http_get`, `tls_certificate`, `dns_resolve`, `s3_direct_access` | security report → verification report + evidence file |
-| **Diagnoser** (`agents/diagnoser_agent.py`) | Finds the root cause in AWS config and proposes one fix from an allowlist | AWS reads + probes | verification report → proposal (action, params, reason, risk) |
+| **Planner** (`agents/planner.py`) | Turns `requirements.yaml` (incl. delivery requirements) into tasks for the other agents | none (JSON mode) | `plan` |
+| **Site Agent** (`agents/site_agent.py`) | Checks the site against the website requirements; quality notes feed the Test Engineer | `inventory_site`, `check_links`, `check_site_requirements` | `generate-tests` |
+| **Pipeline Engineer** (`agents/pipeline_engineer.py`) | Reviews stage order, test gate, immutable releases, cache refresh, rollback, S3-only logging, least-privilege roles, drift from the repo, recent health. **Read-only; no update tool** | `read_repo_file`, `live_pipeline`, `pipeline_drift`, `codebuild_projects`, `pipeline_role_policies`, `recent_executions` | `review-pipeline` |
+| **Test Engineer** (`agents/test_engineer.py`) | Writes candidate pytest files from the requirements; the harness keeps only those that pass on the real build **and** fail on at least one mutant (deleted page, broken link, removed script tag, dropped nav link, corrupt `release.json`); rejects exact-copy assertions | `inventory_site`, `read_site_file`, `stage_candidate`, `drop_candidate`, `evaluate_candidates` | `generate-tests` |
+| **Diagnoser** (`agents/diagnoser_agent.py`) | *Release mode:* reports the observed failure, failed stage/action, log and test excerpts, root cause, recommended fix and evidence. *Verify mode:* root cause in AWS config plus one allowlisted fix | CI/CD reads (`execution_actions`, `codebuild_build`, `build_log`, `test_results`, `failed_test_cases`, `release_status`, `git_commit`, …) and probes | `analyze-release`, `verify` |
+| **Recovery Coordinator** (`agents/recovery_agent.py`) | Reads history, identifies the known-good release, runs the same bounded rollback as the pipeline\*, hands off to the Verifier; in fix mode applies exactly one Diagnoser proposal\* | `release_status`, `recent_executions`, `rollback_to_known_good`\* (fix mode: the single proposed tool) | `rollback`, `verify` |
+| **Security Agent** (`agents/security_agent.py`) | Read-only audit: Block Public Access, bucket policy scope, OAC, HTTPS redirect, certificate, TLS policy, DNS | AWS read tools | `audit` |
+| **Verifier** (`agents/verifier_agent.py`) | Runs the pipeline's live check suite (incl. the **live release ID**, Content-Types, the jsdom filter check) and investigates failures | `http_get`, `http_get_json`, `tls_certificate`, `dns_resolve`, `s3_direct_access`, `jsdom_filter_check`, `s3_public_access_block` | `verify`, after `rollback` |
 
 \* consequential: requires human approval.
 
-Verification checks (Part D): domain returns 200; TLS chain valid; certificate covers the
-domain and is unexpired; `http://` redirects (301/308) to `https://`; all five pages return 200;
-responses carry CloudFront headers; anonymous direct S3 request returns 403; missing pages
-return the custom 404; `www` returns 200.
-
 ## Requirements
 
-- Python 3.10+
-- An OpenAI API key (you pay per call; a full `deploy` run costs a few cents with a mini model)
-- AWS credentials for two identities:
-  - **admin** (your own) for one-time `deploy/bootstrap.py` and `scripts/inject_failure.py`
-  - **agent** user with only `iam/agent-policy.json` for everything the agents do
+- Python 3.10+ and Node.js 18+ (for the jsdom check)
+- An OpenAI API key for the agent commands (the pipeline and `release-status` need none)
+- AWS: an **admin** profile for one-time setup scripts, and the least-privilege **agent** user
+  (`iam/agent-policy.json`) for everything the agents do
 
 ## Installation
 
 ```bash
 git clone <this repo> && cd <repo>
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env        # then edit .env
+pip install -r requirements.txt      # agents + local use (requirements-ci.txt is what CodeBuild installs)
+npm ci                               # jsdom, pinned in package-lock.json
+cp .env.example .env                 # then edit .env
 ```
 
 ## Environment variables
 
 | Variable | Purpose |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI key used by `core/llm.py` (never committed; `.env` is gitignored) |
-| `OPENAI_MODEL` | Model name, default `gpt-4.1-mini`; any current Chat Completions model with tool calling works |
-| `AWS_PROFILE` | Profile for the least-privilege agent user, e.g. `csce412-agent` |
-| `AWS_REGION` | Optional; bucket region is auto-detected |
-| `P5_CONFIG` | Optional path to an alternate `config.yaml` |
+| `OPENAI_API_KEY` | OpenAI key for the agents (`.env`, gitignored; never committed) |
+| `OPENAI_MODEL` | Model, default `gpt-4.1-mini` |
+| `AWS_PROFILE` | `csce412-agent` for the agents; `csce412-admin` only for setup scripts |
+| `AWS_REGION` | Optional; the site and pipeline are in `us-east-2` (`config.yaml`) |
+| `P5_CONFIG` | Optional alternate `config.yaml` |
+| `EXPECTED_SHA`, `PIPELINE_EXECUTION_ID` | Set by CodePipeline for each build; locally `EXPECTED_SHA` falls back to `git rev-parse HEAD` |
+| `EXPECTED_RELEASE`, `SITE_DIR` | Test inputs (release that must be live; built site to test), set by `cicd/release.py` |
 
-Non-secret settings (domain, bucket, required pages) live in `config.yaml`.
+Non-secret settings (domain, bucket, distribution, artifacts bucket, required pages) are in `config.yaml`.
 
-### Agent IAM user
+## How a release happens
 
-1. In IAM, create a user `csce412-agent` with no console access.
-2. Replace `ACCOUNT_ID`, `DISTRIBUTION_ID`, `HOSTED_ZONE_ID` in `iam/agent-policy.json`, and
-   attach it as an inline policy.
-3. Create an access key and run `aws configure --profile csce412-agent`.
+1. Merge or push to `main`. The CodeConnections trigger starts the pipeline (QUEUED: one execution at a time).
+2. **Test**: builds `build/site`, writes `release.json`, stamps the short SHA into every footer, and runs
+   `tests/unit`, `tests/predeploy` and `tests/generated`. Any failure stops the execution, so nothing is deployed.
+3. **Deploy**: uploads to `releases/<full sha>/`, points CloudFront's `OriginPath` at it, waits for
+   `Deployed`, invalidates `/*`, and records `deployed`.
+4. **Verify & Recover**: runs `tests/postdeploy` against production. If it passes, the release is
+   recorded `verified`. If it fails, the release is recorded `failed`, the pipeline rolls back to the
+   newest verified release, re-verifies it, records `rolled_back`, and the execution ends Failed.
 
-The agents cannot create or delete buckets, distributions, certificates or zones, can only
-change A/AAAA records in this one zone, and cannot delete the bucket policy.
+**Release IDs**: the commit SHA (`release.json`, page footers, the `releases/` prefix).
+**Which release is live**: CloudFront's `OriginPath` (`python orchestrator.py release-status`, or
+`https://csce412isaacgeng.me/release.json`).
+**Cache handling**: HTML/JSON are `no-cache`, assets `max-age=86400`; every switch waits for
+Deployed and then invalidates `/*`.
+**Rollback**: whole releases only, only to an existing `verified` release, never individual files
+or manual uploads. Details in [docs/cicd.md](docs/cicd.md#rollback).
 
-## Running
+## Commands
 
 ```bash
-python orchestrator.py plan       # Planner only
-python orchestrator.py deploy     # full pipeline: plan → site → infra → security → verify (→ recover)
-python orchestrator.py audit      # Security Agent only
-python orchestrator.py verify     # verify; on failure diagnose → approve → fix → re-verify
+python orchestrator.py release-status                  # live + known-good release, history, recent executions (no LLM)
+python orchestrator.py review-pipeline                 # Pipeline Engineer
+python orchestrator.py generate-tests                  # Site Agent -> Test Engineer -> harness -> tests/generated/
+python orchestrator.py analyze-release [--execution-id ID]   # Diagnoser (default: latest execution)
+python orchestrator.py rollback                        # Recovery Coordinator -> approval -> Verifier
+python orchestrator.py verify                          # live checks; on failure diagnose -> approve -> fix -> re-verify
+python orchestrator.py audit                           # Security Agent
+python orchestrator.py plan                            # Planner
 ```
 
-Flags: `--no-recover` (verify without fixing), `--auto-deny` (deny every approval; safe dry run).
+Flags: `--auto-deny` (deny every approval; safe dry run), `--no-recover` (verify only).
+Run with `AWS_PROFILE=csce412-agent`.
 
 Each run writes `runs/<timestamp>-<command>/`:
 
 | File | Contents |
 |---|---|
-| `timeline.log` | Chronological, human-readable log of every agent step |
+| `timeline.log` | Chronological log of every agent step |
 | `agents/<agent>.log` | Per-agent log |
 | `messages.jsonl` | Agent-to-agent messages (sender, recipient, type, payload) |
-| `tools.jsonl` | Every tool call with arguments, approval status and raw result |
+| `tools.jsonl` | Every tool call: arguments, approval status, raw result |
 | `llm_calls.jsonl` | Every model call: agent, model, tokens, tool chosen |
 | `approvals.jsonl` | Human approval decisions |
-| `evidence/` | `plan.json`, `security_audit.json`, `verification_*.json`, `diagnosis_*.json` |
+| `evidence/` | `pipeline_review.json`, `test_generation.json`, `release_analysis_<id>.json`, `rollback.json`, `verification_*.json`, … |
 
 All log output passes through `core/redact.py`.
 
-## Reproducing the workflow
+## Setup (one time)
 
-**1. Infrastructure (one time, admin profile)**
+Infrastructure from Project 5 (`deploy/bootstrap.py`, admin profile) already exists: domain, zone,
+certificate, bucket, OAC, distribution, bucket policy, DNS. Content is now published only by the pipeline.
 
-```bash
-AWS_PROFILE=default python deploy/bootstrap.py
-```
+1. **GitHub connection** (console, us-east-2): Developer Tools → Settings → Connections → GitHub;
+   install the AWS Connector app for this repository only. Copy the ARN.
+2. **Baseline**: `AWS_PROFILE=csce412-admin python cicd/seed_baseline.py`
+3. **Pipeline**: `AWS_PROFILE=csce412-admin python cicd/setup_pipeline.py --connection-arn <ARN> [--dry-run]`
+4. **Agent user** (`csce412-agent`, no console access): attach `iam/agent-policy.json` as the
+   customer-managed policy `csce412-agent-policy` (it exceeds the 2,048-character inline limit);
+   create an access key and run `aws configure --profile csce412-agent`.
+5. **Optional**: `AWS_PROFILE=csce412-admin python cicd/cleanup_root.py` removes the legacy
+   Project 5 root objects once a pipeline release is verified.
 
-Idempotent: creates any missing piece (certificate, private bucket with Block Public Access,
-OAC, distribution with HTTPS redirect and custom error pages, OAC-scoped bucket policy, alias
-records) and uploads `site/`. Re-running changes nothing that already exists.
+Exact commands are in [docs/cicd.md](docs/cicd.md#setup-one-time-admin-profile).
 
-**2. Deploy and verify with the agents**
+## Permissions
 
-```bash
-python orchestrator.py deploy
-```
+| Identity | Scope |
+|---|---|
+| Pipeline and CodeBuild roles | Per stage, exact resource ARNs only; the test role cannot touch the site or CloudFront; only deploy writes `releases/`; verify writes only `history.json` |
+| Agent user | Read releases and history, write only `history.json`; CloudFront update/invalidate for rollback and approved fixes; read-only CodePipeline/CodeBuild/results/logs/pipeline-role policies; Project 5's approval-gated bucket fixes. Cannot create or delete buckets, distributions, certificates or zones, cannot change the pipeline, cannot upload site files |
 
-Approve the `s3_sync_site` prompt. Expect every check to report `PASS`.
+AWS services used: S3, CloudFront, Route 53, ACM, CodePipeline (with its CodeConnections GitHub
+source), CodeBuild, and IAM roles. Full table in [docs/cicd.md](docs/cicd.md#aws-services-and-permissions).
 
-**3. Failure diagnosis and recovery (Part E)**
+## Experiments
 
-```bash
-AWS_PROFILE=default python scripts/inject_failure.py list
-AWS_PROFILE=default python scripts/inject_failure.py inject bucket-policy
-python orchestrator.py verify          # detects, diagnoses, asks approval, fixes, re-verifies
-python scripts/inject_failure.py clear # remove the backup file once recovered
-```
+[scripts/experiments/](scripts/experiments/README.md): (1) a successful release with a visible
+change, (2) a broken internal link blocked by the Test stage, (3) a deploy-configuration defect
+(`.js` served as `text/plain`) caught in production and rolled back automatically. Package the
+evidence with `scripts/export_logs.py`.
 
-Scenarios: `bucket-policy` (OAC can't read S3, every page 403), `http-allowed` (no HTTPS
-redirect), `root-object` (`/` fails, `/index.html` works). Each saves prior state and can be
-undone manually with `inject_failure.py revert` if needed.
+## Tests
 
-**4. Package the logs**
-
-```bash
-python scripts/export_logs.py --deploy runs/<deploy-run> --failure runs/<verify-run>
-```
-
-## Human-only steps
-
-- Registering `csce412isaacgeng.me` at Namecheap.
-- Setting Namecheap's Custom DNS to the Route 53 nameservers (printed by bootstrap).
-- Creating the agent IAM user and access keys.
-- Approving consequential changes at the prompt.
-- Injecting the controlled failure.
+| Suite | Runs in | What |
+|---|---|---|
+| `tests/unit` | Test stage | Release logic with a fake S3; pipeline definition safety properties |
+| `tests/predeploy` | Test stage | Files, pages, internal references, assets, structure, nav, `release.json`, footer stamp, jsdom filter |
+| `tests/generated` | Test stage | Tests kept by the Test Engineer's harness |
+| `tests/postdeploy` | Verify stage | Live checks (`tools/live_checks.py`) |
+| `tests/agents` | locally | Harness, CI/CD tools with fake AWS, rollback approval and recording |
 
 ## Repository layout
 
 ```
-agents/      planner, site, infra, security, verifier, diagnoser
+agents/      planner, site, pipeline engineer, test engineer, diagnoser, recovery coordinator, security, verifier
+cicd/        release.py (shared release logic + pipeline CLI), buildspecs, content-types.json,
+             setup_pipeline.py, seed_baseline.py, cleanup_root.py
 core/        agent loop + approval gate, OpenAI wrapper, message bus/logging, config, redaction
-tools/       site inspection, HTTP/TLS/DNS probes, AWS operations, per-agent tool allowlists
-deploy/      bootstrap.py (idempotent infrastructure setup)
-scripts/     inject_failure.py, export_logs.py
-iam/         agent-policy.json (least privilege)
-site/        the five-page website + 404 page
-config.yaml  requirements.yaml  requirements.txt  .env.example
+tools/       site inspection, probes, live checks, AWS and CI/CD reads, test harness, tool allowlists
+tests/       unit, predeploy, postdeploy, generated, agents, js/filter_check.mjs
+deploy/      bootstrap.py (Project 5 infrastructure)
+scripts/     experiments/, export_logs.py, inject_failure.py (Project 5 failure scenarios)
+iam/         agent-policy.json
+docs/        cicd.md
+site/        the website
 ```
+
+## Human-only steps
+
+Registering the domain and delegating DNS; creating and authorizing the GitHub connection; running
+the admin setup scripts; creating the agent user and its access key; approving consequential agent
+actions; merging the experiment PRs.
 
 ## AI usage
 
-The agent system and website were written with AI assistance (Claude), then reviewed, tested
-and adapted by me. The agents themselves call the OpenAI API at runtime.
+The agent system, pipeline and website were written with AI assistance (Claude), then reviewed,
+tested and adapted by me. The agents call the OpenAI API at runtime.

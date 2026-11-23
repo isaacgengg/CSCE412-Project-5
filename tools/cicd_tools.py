@@ -23,9 +23,11 @@ REPO_FILES = [f"cicd/buildspec-{s}.yml" for s in STAGES] + [
 
 def summarize_action(a: dict) -> dict:
     res = (a.get("output") or {}).get("executionResult") or {}
+    ext = res.get("externalExecutionId") or ""
     return {"stage": a.get("stageName"), "action": a.get("actionName"), "status": a.get("status"),
             "start": str(a.get("startTime")), "end": str(a.get("lastUpdateTime")),
-            "build_id": res.get("externalExecutionId"),
+            "build_id": ext if ":" in ext else None,              # CodeBuild IDs are project:uuid
+            "revision": None if ":" in ext else ext or None,      # the Source action reports the commit
             "summary": redact(res.get("externalExecutionSummary") or "")[:500]}
 
 
