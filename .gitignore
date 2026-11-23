@@ -8,3 +8,5 @@ project5-agent-logs.zip
 .failure_backup.json
 build/
 node_modules/
+project6-logs/
+project6-logs.zip
