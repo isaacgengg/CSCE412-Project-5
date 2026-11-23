@@ -213,20 +213,27 @@ def invalidate_all(tag: str) -> str:
     return inv_id
 
 
+def set_origin_path(path: str) -> str:
+    """Set the origin's OriginPath and wait for Deployed. Returns the previous path."""
+    r = cf().get_distribution_config(Id=cfg().distribution_id)
+    dc = r["DistributionConfig"]
+    origin = _origin(dc)
+    before = origin.get("OriginPath", "")
+    if before != path:
+        origin["OriginPath"] = path
+        cf().update_distribution(Id=cfg().distribution_id, IfMatch=r["ETag"], DistributionConfig=dc)
+        say(f"OriginPath {before or '(empty)'} -> {path or '(empty)'}; waiting for Deployed")
+        wait_deployed()
+    return before
+
+
 def switch_release(rid: str) -> dict:
     """Point CloudFront at a complete release, wait for Deployed, invalidate /* and wait."""
     check_release_id(rid)
     if not object_exists(f"releases/{rid}/release.json"):
         raise ValueError(f"releases/{rid}/ is missing or incomplete; refusing to switch")
-    r = cf().get_distribution_config(Id=cfg().distribution_id)
-    dc = r["DistributionConfig"]
-    origin = _origin(dc)
-    before, after = origin.get("OriginPath", ""), f"/releases/{rid}"
-    if before != after:
-        origin["OriginPath"] = after
-        cf().update_distribution(Id=cfg().distribution_id, IfMatch=r["ETag"], DistributionConfig=dc)
-        say(f"OriginPath {before or '(empty)'} -> {after}; waiting for Deployed")
-        wait_deployed()
+    after = f"/releases/{rid}"
+    before = set_origin_path(after)
     inv = invalidate_all(f"release-{rid[:12]}")
     say(f"live release is now {rid} (invalidation {inv} complete)")
     return {"from_origin_path": before, "to_origin_path": after, "invalidation_id": inv}

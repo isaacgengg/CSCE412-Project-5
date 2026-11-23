@@ -2,18 +2,36 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "SiteBucketReadWriteObjects",
+      "Sid": "SiteReleasesAndHistoryRead",
       "Effect": "Allow",
-      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::csce412isaacgeng-site/*"
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::csce412isaacgeng-site/releases/*",
+        "arn:aws:s3:::csce412isaacgeng-site/deployments/*"
+      ]
+    },
+    {
+      "Sid": "SiteHistoryWrite",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::csce412isaacgeng-site/deployments/history.json"
     },
     {
       "Sid": "SiteBucketConfig",
       "Effect": "Allow",
       "Action": [
-        "s3:ListBucket", "s3:GetBucketLocation", "s3:GetBucketWebsite",
-        "s3:GetBucketPolicy", "s3:GetBucketPolicyStatus", "s3:PutBucketPolicy",
-        "s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock"
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketWebsite",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:PutBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketPublicAccessBlock"
       ],
       "Resource": "arn:aws:s3:::csce412isaacgeng-site"
     },
@@ -21,43 +39,146 @@
       "Sid": "CloudFrontThisDistribution",
       "Effect": "Allow",
       "Action": [
-        "cloudfront:GetDistribution", "cloudfront:GetDistributionConfig",
-        "cloudfront:UpdateDistribution", "cloudfront:CreateInvalidation", "cloudfront:GetInvalidation"
+        "cloudfront:GetDistribution",
+        "cloudfront:GetDistributionConfig",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:CreateInvalidation",
+        "cloudfront:GetInvalidation"
       ],
       "Resource": "arn:aws:cloudfront::408588283693:distribution/E14KO8XRACBHA0"
     },
     {
       "Sid": "CloudFrontDiscovery",
       "Effect": "Allow",
-      "Action": ["cloudfront:ListDistributions"],
+      "Action": [
+        "cloudfront:ListDistributions"
+      ],
       "Resource": "*"
     },
     {
       "Sid": "Route53ReadZone",
       "Effect": "Allow",
-      "Action": ["route53:ListResourceRecordSets", "route53:GetHostedZone"],
+      "Action": [
+        "route53:ListResourceRecordSets",
+        "route53:GetHostedZone"
+      ],
       "Resource": "arn:aws:route53:::hostedzone/Z069159025HBQWOF40552"
     },
     {
       "Sid": "Route53AliasRecordsOnly",
       "Effect": "Allow",
-      "Action": ["route53:ChangeResourceRecordSets"],
+      "Action": [
+        "route53:ChangeResourceRecordSets"
+      ],
       "Resource": "arn:aws:route53:::hostedzone/Z069159025HBQWOF40552",
       "Condition": {
-        "ForAllValues:StringEquals": {"route53:ChangeResourceRecordSetsRecordTypes": ["A", "AAAA"]}
+        "ForAllValues:StringEquals": {
+          "route53:ChangeResourceRecordSetsRecordTypes": [
+            "A",
+            "AAAA"
+          ]
+        }
       }
     },
     {
       "Sid": "Route53Discovery",
       "Effect": "Allow",
-      "Action": ["route53:ListHostedZonesByName", "route53:GetChange"],
+      "Action": [
+        "route53:ListHostedZonesByName",
+        "route53:GetChange"
+      ],
       "Resource": "*"
     },
     {
       "Sid": "AcmReadOnly",
       "Effect": "Allow",
-      "Action": ["acm:DescribeCertificate", "acm:ListCertificates"],
+      "Action": [
+        "acm:DescribeCertificate",
+        "acm:ListCertificates"
+      ],
       "Resource": "*"
+    },
+    {
+      "Sid": "PipelineRead",
+      "Effect": "Allow",
+      "Action": [
+        "codepipeline:GetPipeline",
+        "codepipeline:GetPipelineState",
+        "codepipeline:GetPipelineExecution",
+        "codepipeline:ListPipelineExecutions",
+        "codepipeline:ListActionExecutions"
+      ],
+      "Resource": "arn:aws:codepipeline:us-east-2:408588283693:csce412-site-pipeline"
+    },
+    {
+      "Sid": "CodeBuildRead",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:BatchGetProjects",
+        "codebuild:BatchGetBuilds",
+        "codebuild:ListBuildsForProject"
+      ],
+      "Resource": [
+        "arn:aws:codebuild:us-east-2:408588283693:project/csce412-site-test",
+        "arn:aws:codebuild:us-east-2:408588283693:project/csce412-site-deploy",
+        "arn:aws:codebuild:us-east-2:408588283693:project/csce412-site-verify"
+      ]
+    },
+    {
+      "Sid": "TestReportsRead",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:BatchGetReports",
+        "codebuild:DescribeTestCases",
+        "codebuild:ListReportsForReportGroup"
+      ],
+      "Resource": [
+        "arn:aws:codebuild:us-east-2:408588283693:report-group/csce412-site-tests",
+        "arn:aws:codebuild:us-east-2:408588283693:report/csce412-site-tests:*"
+      ]
+    },
+    {
+      "Sid": "ArtifactsResultsAndLogsRead",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::csce412isaacgeng-pipeline-artifacts/results/*",
+        "arn:aws:s3:::csce412isaacgeng-pipeline-artifacts/codebuild-logs/*"
+      ]
+    },
+    {
+      "Sid": "ArtifactsListResultsAndLogs",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::csce412isaacgeng-pipeline-artifacts",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": [
+            "results/*",
+            "codebuild-logs/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "PipelineRolesRead",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::408588283693:role/csce412-codepipeline",
+        "arn:aws:iam::408588283693:role/csce412-codebuild-test",
+        "arn:aws:iam::408588283693:role/csce412-codebuild-deploy",
+        "arn:aws:iam::408588283693:role/csce412-codebuild-verify"
+      ]
     }
   ]
 }
