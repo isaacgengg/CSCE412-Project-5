@@ -1,0 +1,28 @@
+# Stage 2: Build/Test. Builds the release (release.json + footer stamp), then tests the BUILT
+# output. Any failed test fails this stage, so Deploy never runs.
+# Env from CodePipeline: EXPECTED_SHA=#{SourceVariables.CommitId},
+#                        PIPELINE_EXECUTION_ID=#{codepipeline.PipelineExecutionId}
+version: 0.2
+env:
+  variables:
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+      nodejs: 20
+    commands:
+      - pip install -q -r requirements-ci.txt
+      - npm ci --no-audit --no-fund
+  build:
+    commands:
+      - python -m cicd.release build
+      - python -m cicd.release test predeploy
+reports:
+  arn:aws:codebuild:us-east-2:408588283693:report-group/csce412-site-tests:
+    base-directory: build/results
+    files: ["junit-*.xml"]
+    file-format: JUNITXML
+artifacts:
+  base-directory: build/site
+  files: ["**/*"]

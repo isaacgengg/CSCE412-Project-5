@@ -6,3 +6,5 @@ runs/
 project5-agent-logs/
 project5-agent-logs.zip
 .failure_backup.json
+build/
+node_modules/

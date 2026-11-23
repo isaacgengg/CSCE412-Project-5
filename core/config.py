@@ -19,6 +19,7 @@ class Config:
     distribution_id: str = ""      # auto-discovered from the domain alias if blank
     hosted_zone_id: str = ""       # auto-discovered from the domain name if blank
     oac_name: str = "csce412-site-oac"
+    artifacts_bucket: str = ""
     model: str = "gpt-4.1-mini"
     max_agent_steps: int = 12
 
@@ -45,6 +46,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         distribution_id=raw.get("distribution_id", "") or "",
         hosted_zone_id=raw.get("hosted_zone_id", "") or "",
         oac_name=raw.get("oac_name", "csce412-site-oac"),
+        artifacts_bucket=raw.get("artifacts_bucket", ""),
         model=os.environ.get("OPENAI_MODEL", raw.get("model", "gpt-4.1-mini")),
         max_agent_steps=int(raw.get("max_agent_steps", 12)),
     )

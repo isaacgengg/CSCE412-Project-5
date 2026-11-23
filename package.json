@@ -1,0 +1,9 @@
+{
+  "name": "csce412-site-checks",
+  "private": true,
+  "description": "jsdom behaviour check for the project filter (tests/js/filter_check.mjs)",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "jsdom": "25.0.1"
+  }
+}

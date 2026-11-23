@@ -1,0 +1,5 @@
+boto3>=1.35.70        # S3 conditional writes (IfMatch) for history.json
+requests>=2.31
+dnspython>=2.6
+PyYAML>=6.0
+pytest>=8.0
