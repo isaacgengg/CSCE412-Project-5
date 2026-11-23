@@ -46,7 +46,7 @@ passing release:
 ```bash
 git checkout main && git pull
 git checkout -b exp/revert-2
-git revert -m 1 --no-edit <merge commit of experiment 2>
+git revert --no-edit <commit of experiment 2>   # squash merge: one commit; add -m 1 for a merge commit
 git push -u origin exp/revert-2 && gh pr create --fill && gh pr merge --merge --delete-branch
 ```
 
