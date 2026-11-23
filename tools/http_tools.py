@@ -70,3 +70,17 @@ def dns_resolve(name: str, record_type: str = "A") -> dict:
         return {"name": name, "type": record_type, "error": "NoAnswer"}
     except Exception as e:
         return {"name": name, "type": record_type, "error": type(e).__name__, "message": str(e)[:200]}
+
+
+def http_get_json(url: str, timeout: float = 10) -> dict:
+    """GET a JSON document (e.g. /release.json) and return it parsed."""
+    try:
+        r = requests.get(url, timeout=timeout, headers={"User-Agent": "csce412-verifier/1.0"})
+    except requests.exceptions.RequestException as e:
+        return {"url": url, "error": type(e).__name__, "message": str(e)[:300]}
+    out = {"url": url, "status": r.status_code, "content_type": r.headers.get("content-type")}
+    try:
+        out["json"] = r.json()
+    except ValueError:
+        out.update(error="invalid JSON", body_snippet=r.text[:160])
+    return out

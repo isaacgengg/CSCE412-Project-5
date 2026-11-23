@@ -8,7 +8,7 @@ from functools import partial
 
 from core.agent import Tool, no_params, with_rationale
 from core.config import Config
-from tools import http_tools, site_tools
+from tools import live_checks, site_tools
 from tools.aws_tools import AWS
 
 
@@ -24,23 +24,32 @@ def site_tools_for(cfg: Config) -> list[Tool]:
 
 
 def probe_tools(cfg: Config, aws: AWS) -> list[Tool]:
+    fn = live_checks.probe_functions(aws)
     return [
         Tool("http_get", "HTTP GET a URL; returns status, redirect info and key headers.",
              {"type": "object", "properties": {
                  "url": {"type": "string"},
                  "follow_redirects": {"type": "boolean", "default": False}},
-              "required": ["url"]}, http_tools.http_get),
+              "required": ["url"]}, fn["http_get"]),
+        Tool("http_get_json", "HTTP GET a JSON document (e.g. https://domain/release.json) and return it parsed.",
+             {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]},
+             fn["http_get_json"]),
         Tool("tls_certificate", "Open a TLS connection and return the validated certificate details.",
              {"type": "object", "properties": {"host": {"type": "string"}}, "required": ["host"]},
-             http_tools.tls_certificate),
+             fn["tls_certificate"]),
         Tool("dns_resolve", "Resolve a DNS name (A, AAAA, NS, CNAME).",
              {"type": "object", "properties": {
                  "name": {"type": "string"},
                  "record_type": {"type": "string", "enum": ["A", "AAAA", "NS", "CNAME"]}},
-              "required": ["name"]}, http_tools.dns_resolve),
-        Tool("s3_direct_access", "Request an object directly from the S3 bucket endpoint without credentials.",
+              "required": ["name"]}, fn["dns_resolve"]),
+        Tool("s3_direct_access", "Request an object directly from the S3 bucket endpoint without credentials "
+             "(releases live under releases/<release_id>/).",
              {"type": "object", "properties": {"key": {"type": "string", "default": "index.html"}}},
-             lambda key="index.html": http_tools.http_get(aws.s3_direct_url(key))),
+             fn["s3_direct_access"]),
+        Tool("jsdom_filter_check", "Run projects.html + js/main.js from a URL or local directory in jsdom, "
+             "click a project filter, and report whether cards and the count update.",
+             {"type": "object", "properties": {"target": {"type": "string"}}, "required": ["target"]},
+             fn["jsdom_filter_check"]),
     ]
 
 
