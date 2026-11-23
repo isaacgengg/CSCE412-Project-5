@@ -6,10 +6,8 @@ Read functions are safe for any agent. Write functions are registered as
 """
 from __future__ import annotations
 import json
-import mimetypes
 import time
 from functools import lru_cache
-from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
@@ -17,8 +15,6 @@ from botocore.exceptions import ClientError
 from core.config import Config
 
 CLOUDFRONT_ZONE_ID = "Z2FDTNDATAQYW2"   # fixed hosted zone ID for all CloudFront aliases
-mimetypes.add_type("image/svg+xml", ".svg")
-mimetypes.add_type("application/javascript", ".js")
 
 
 class AWS:
@@ -94,10 +90,21 @@ class AWS:
             raise
 
     def s3_list_objects(self) -> dict:
-        objs = []
+        """Summarize the bucket layout: immutable releases/<id>/, deployments/, legacy root objects."""
+        releases: dict[str, int] = {}
+        root, other = [], []
         for page in self.s3.get_paginator("list_objects_v2").paginate(Bucket=self.cfg.bucket):
-            objs += [{"key": o["Key"], "size": o["Size"]} for o in page.get("Contents", [])]
-        return {"bucket": self.cfg.bucket, "count": len(objs), "objects": objs}
+            for o in page.get("Contents", []):
+                parts = o["Key"].split("/")
+                if parts[0] == "releases" and len(parts) > 2:
+                    releases[parts[1]] = releases.get(parts[1], 0) + 1
+                elif len(parts) == 1:
+                    root.append(o["Key"])
+                else:
+                    other.append(o["Key"])
+        return {"bucket": self.cfg.bucket, "releases": releases, "legacy_root_objects": root,
+                "other_objects": other,
+                "note": "CloudFront serves releases/<live id>/ via OriginPath; root objects are not served."}
 
     def cloudfront_summary(self) -> dict:
         d = self.cf.get_distribution(Id=self.distribution_id())["Distribution"]
@@ -216,24 +223,6 @@ class AWS:
                 "records": [f"{c['ResourceRecordSet']['Name']} {c['ResourceRecordSet']['Type']} -> {target}"
                             for c in changes],
                 "note": "Resolvers that cached NXDOMAIN may take up to 15 minutes to see new records."}
-
-    def s3_sync_site(self, delete_extraneous: bool = True) -> dict:
-        site: Path = self.cfg.site_dir
-        local = {str(f.relative_to(site)).replace("\\", "/"): f for f in site.rglob("*") if f.is_file()}
-        uploaded = []
-        for key, f in sorted(local.items()):
-            ctype = mimetypes.guess_type(f.name)[0] or "application/octet-stream"
-            cache = "no-cache" if key.endswith(".html") else "public, max-age=86400"
-            self.s3.upload_file(str(f), self.cfg.bucket, key,
-                                ExtraArgs={"ContentType": ctype, "CacheControl": cache})
-            uploaded.append({"key": key, "content_type": ctype})
-        deleted = []
-        if delete_extraneous:
-            remote = {o["key"] for o in self.s3_list_objects()["objects"]}
-            for key in sorted(remote - set(local)):
-                self.s3.delete_object(Bucket=self.cfg.bucket, Key=key)
-                deleted.append(key)
-        return {"bucket": self.cfg.bucket, "uploaded": uploaded, "deleted": deleted}
 
     def cloudfront_invalidate(self, paths: list[str] | None = None) -> dict:
         paths = paths or ["/*"]

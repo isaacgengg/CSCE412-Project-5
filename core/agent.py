@@ -80,6 +80,7 @@ class Agent:
     tools: list[Tool]
     report_schema: dict
     ctx: Context
+    max_steps: int | None = None        # default: config max_agent_steps
     tool_index: dict = field(init=False)
 
     def __post_init__(self):
@@ -122,7 +123,7 @@ class Agent:
              "never on assumptions. When done, call submit_report."},
             {"role": "user", "content": json.dumps(task, default=str)},
         ]
-        max_steps = self.ctx.cfg.max_agent_steps
+        max_steps = self.max_steps or self.ctx.cfg.max_agent_steps
         for step in range(max_steps):
             force = {"type": "function", "function": {"name": "submit_report"}} \
                 if step == max_steps - 1 else "required"

@@ -9,9 +9,15 @@ from core.bus import RunLog
 
 class LLM:
     def __init__(self, model: str, log: RunLog):
-        self.client = OpenAI()          # reads OPENAI_API_KEY from the environment
+        self._client = None             # created on first use, so non-LLM commands need no key
         self.model = model
         self.log = log
+
+    @property
+    def client(self) -> OpenAI:
+        if self._client is None:
+            self._client = OpenAI()     # reads OPENAI_API_KEY from the environment
+        return self._client
 
     def chat(self, agent: str, messages: list[dict], tools: list[dict] | None = None,
              tool_choice=None, json_mode: bool = False):

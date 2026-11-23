@@ -4,12 +4,18 @@ from core.agent import Context
 
 AGENTS = {
     "site": "Inspects the local website files against the website requirements.",
-    "infrastructure": "Uploads site content to S3, invalidates the CloudFront cache, and reads the existing "
-                      "S3/CloudFront config to confirm it matches requirements. It does not create resources "
-                      "or change security settings (deploy/bootstrap.py creates the infrastructure).",
+    "pipeline": "Reviews the CI/CD pipeline (CodePipeline + CodeBuild): stage order, test gate, immutable "
+                "releases, CloudFront refresh, logging to S3, least-privilege roles, drift. Read-only.",
+    "test_engineering": "Generates pre-deploy tests from the requirements; keeps only tests that pass on the "
+                        "real site and catch at least one automatically injected defect.",
     "security": "Read-only audit of S3 public access settings, bucket policy, CloudFront OAC, HTTPS redirect, "
-                "TLS policy, the ACM certificate, and Route 53 records. Cannot inspect IAM or source control.",
-    "verification": "Probes the live site (HTTP, TLS, DNS, direct S3) and records evidence.",
+                "TLS policy, the ACM certificate, and Route 53 records. Cannot inspect source control.",
+    "verification": "Probes the live site (HTTP, TLS, DNS, direct S3, live release ID, content types, "
+                    "the project filter in jsdom) and records evidence.",
+    "diagnosis": "Finds the root cause of a failed pipeline execution or failed verification from logs, "
+                 "test results and configuration.",
+    "recovery": "Restores the newest verified release (whole release, via CloudFront OriginPath) or applies one "
+                "approved configuration fix. Deployment itself is done by the pipeline, not by an agent.",
 }
 
 SYSTEM = f"""You are the Planner in a multi-agent cloud engineering system.
@@ -24,7 +30,7 @@ Return JSON only:
   "human_actions": [str]   // steps that cannot be automated (e.g. domain registration)
 }}
 Rules:
-- Make tasks fine-grained: one verifiable outcome per task (aim for 8-14 tasks). For example,
+- Make tasks fine-grained: one verifiable outcome per task (aim for 10-16 tasks). For example,
   "HTTPS redirect", "certificate covers the domain" and "bucket blocks public access" are
   separate tasks, even when the same agent handles them.
 - Only assign a task to an agent whose description says it can do that work. If a requirement

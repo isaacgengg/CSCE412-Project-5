@@ -3,7 +3,8 @@
 
 Creates whatever is missing and leaves existing resources alone:
   hosted zone (must exist) -> ACM cert (us-east-1) -> private S3 bucket -> OAC
-  -> CloudFront distribution -> OAC bucket policy -> Route 53 alias records -> content.
+  -> CloudFront distribution -> OAC bucket policy -> Route 53 alias records.
+Content is deployed by the CI/CD pipeline (cicd/), not by this script.
 
 Human-run with an admin-capable profile (the agent profile cannot create resources):
   AWS_PROFILE=default python deploy/bootstrap.py
@@ -126,13 +127,11 @@ def main():
         aws.distribution_id.cache_clear()
         say(f"created distribution {dist_id} ({dist['DomainName']})")
 
-    # 6-8. Bucket policy, DNS, content
+    # 6-7. Bucket policy, DNS (content: the pipeline)
     aws.cfg.distribution_id = dist_id
     say(f"bucket policy: {json.dumps(aws.restore_oac_bucket_policy()['policy'])[:120]}...")
     say(f"alias records: {aws.upsert_alias_records()['records']}")
-    sync = aws.s3_sync_site()
-    say(f"uploaded {len(sync['uploaded'])} objects, deleted {len(sync['deleted'])}")
-    say(f"invalidation: {aws.cloudfront_invalidate(['/*'])['invalidation_id']}")
+    say("site content is published by the CI/CD pipeline (push to main); see docs/cicd.md")
     say("done. Wait for the distribution to reach 'Deployed', then run: python orchestrator.py verify")
 
 
